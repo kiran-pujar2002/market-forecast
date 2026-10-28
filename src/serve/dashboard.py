@@ -3,8 +3,17 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import os
 
 st.set_page_config(page_title="Market Forecaster", page_icon="📈", layout="wide")
+
+# --- AUTO-DETECT API URL ---
+# If running on Streamlit Cloud, use the Render URL. Otherwise, use localhost.
+if "STREAMLIT_SHARING_MODE" in os.environ or "IS_STREAMLIT_CLOUD" in os.environ:
+    API_URL = "https://market-forecast-api.onrender.com"
+else:
+    API_URL = "http://127.0.0.1:8000"
+# ---------------------------
 
 st.title("📈 Dynamic Stock Forecaster")
 st.markdown("Search for any Indian or US stock to see the historical chart, technical indicators, and predictions.")
@@ -44,6 +53,7 @@ stock_list = get_stock_list()
 
 # --- Search Bar and Analyze Button ---
 col_a, col_b = st.columns([3, 1], vertical_alignment="bottom")
+
 with col_a:
     selected_display = st.selectbox(
         "Search for a Stock (Type company name or ticker)", 
@@ -58,10 +68,10 @@ with col_b:
 if analyze_button and selected_display:
     ticker_search = selected_display.split(" - ")[0].strip()
     
-    # PRE-FLIGHT CHECK: We request the data FIRST to know how many days it has.
+    # Pre-flight check: Get total data days for backtest logic
     with st.spinner("Fetching data and checking history..."):
         try:
-            init_response = requests.post("http://127.0.0.1:8000/predict", json={"ticker": ticker_search, "horizon": 5})
+            init_response = requests.post(f"{API_URL}/predict", json={"ticker": ticker_search, "horizon": 5})
             if init_response.status_code == 200:
                 data_days = init_response.json().get('data_days', 0)
             else:
@@ -71,7 +81,6 @@ if analyze_button and selected_display:
             st.error(f"Failed to connect to API: {e}")
             data_days = 0
 
-    # Only render tabs if we have valid data
     if data_days > 0:
         tab_swing, tab_long, tab_invest, tab_bt_6m, tab_bt_1y = st.tabs([
             "📊 Swing Trade (1 Week)", 
@@ -86,7 +95,7 @@ if analyze_button and selected_display:
                 with st.spinner(f"Calculating {horizon_days}-day prediction..."):
                     try:
                         payload = {"ticker": ticker_search, "horizon": horizon_days}
-                        response = requests.post("http://127.0.0.1:8000/predict", json=payload)
+                        response = requests.post(f"{API_URL}/predict", json=payload)
                         
                         if response.status_code == 200:
                             result = response.json()
@@ -136,7 +145,7 @@ if analyze_button and selected_display:
                         else:
                             st.error(f"Error: {response.json()['detail']}")
                     except Exception as e:
-                        st.error(f"Failed to connect to API. Is FastAPI running? Error: {e}")
+                        st.error(f"Failed to connect to API. Error: {e}")
 
         # Render the 3 prediction tabs
         render_prediction(5, tab_swing)
@@ -146,7 +155,6 @@ if analyze_button and selected_display:
         # --- Backtest Logic Helper ---
         def render_backtest(days, tab_obj, title_text):
             with tab_obj:
-                # Check if the stock has enough days
                 if data_days < days:
                     st.warning(f"⚠️ **Cannot run {title_text} Backtest.**")
                     st.info(f"This stock only has **{data_days}** trading days of history. "
@@ -154,7 +162,7 @@ if analyze_button and selected_display:
                 else:
                     with st.spinner(f"Running {title_text} Backtest..."):
                         try:
-                            bt_response = requests.get(f"http://127.0.0.1:8000/backtest/{ticker_search}?days={days}")
+                            bt_response = requests.get(f"{API_URL}/backtest/{ticker_search}?days={days}")
                             
                             if bt_response.status_code == 200:
                                 bt_data = bt_response.json()

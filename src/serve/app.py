@@ -16,11 +16,22 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from features.build_features import build_features_for_ticker
 from serve.backtest import run_backtest
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(title="Dynamic Market Forecast API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 load_dotenv()
 DB_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DB_URL, poolclass=NullPool)
 
-app = FastAPI(title="Dynamic Market Forecast API")
 
 class TickerRequest(BaseModel):
     ticker: str
