@@ -3,17 +3,17 @@ import requests
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import os
 
 st.set_page_config(page_title="Market Forecaster", page_icon="📈", layout="wide")
 
-# --- AUTO-DETECT API URL ---
-# If running on Streamlit Cloud, use the Render URL. Otherwise, use localhost.
-if "STREAMLIT_SHARING_MODE" in os.environ or "IS_STREAMLIT_CLOUD" in os.environ:
-    API_URL = "https://market-forecast-api.onrender.com"
-else:
+# --- API URL DETECTION (Streamlit Secrets vs Localhost) ---
+try:
+    # When deployed on Streamlit Cloud, it will read the API_URL from the Secrets tab
+    API_URL = st.secrets["API_URL"]
+except Exception:
+    # When running locally on your laptop
     API_URL = "http://127.0.0.1:8000"
-# ---------------------------
+# -----------------------------------------------------------
 
 st.title("📈 Dynamic Stock Forecaster")
 st.markdown("Search for any Indian or US stock to see the historical chart, technical indicators, and predictions.")
@@ -78,7 +78,7 @@ if analyze_button and selected_display:
                 st.error(f"Failed to fetch data: {init_response.json().get('detail')}")
                 data_days = 0
         except Exception as e:
-            st.error(f"Failed to connect to API: {e}")
+            st.error(f"Failed to connect to API. Is FastAPI running? Error: {e}")
             data_days = 0
 
     if data_days > 0:
